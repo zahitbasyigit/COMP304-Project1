@@ -12,7 +12,7 @@ KUSIS ID: PARTNER NAME:
 #include <stdlib.h>
 #include <sys/types.h>
 #include <string.h>
-#include<sys/wait.h>
+#include <sys/wait.h>
 
 
 #define MAX_LINE       80 /* 80 chars per line, per command, should be enough. */
@@ -28,6 +28,8 @@ int parseCommand(char inputBuffer[], char *args[], int *background);
 char *concat(const char *s1, const char *s2);
 
 int isLinuxCommand(char *command);
+
+int arguementsContainsString(char *args[], char *string);
 
 int main(void) {
     char inputBuffer[MAX_LINE];            /* buffer to hold the command entered */
@@ -54,9 +56,12 @@ int main(void) {
           (2) the child process will invoke execv()
           (3) if command included &, parent will invoke wait()
              */
+            int contains = arguementsContainsString(args, ">>");
+            printf("Contains : %d\n", contains);
 
             if (fork() == 0) {
                 if (isLinuxCommand(inputBuffer)) {
+
                     char *execFile = concat("/bin/", inputBuffer);
                     status = execv(execFile, args);
                     printf("execv status: %d\n", status);
@@ -65,12 +70,13 @@ int main(void) {
                     printf("not implemented\n");
                 }
             } else {
-                if (background == 1) {
+                if (background == 0) {
                     printf("waiting for child to end\n");
                     wait(NULL);
                     printf("child has ended\n");
                 }
             }
+
         }
     }
     return 0;
@@ -183,6 +189,17 @@ int isLinuxCommand(char *command) {
 
     return 1;
 }
+
+int arguementsContainsString(char *args[], char *string) {
+    for (int i = 0; i < MAX_LINE / 2 + 1; i++) {
+        if (strcmp(string, args[i]) == 0) {
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
 
 char *concat(const char *s1, const char *s2) {
     char *result = malloc(strlen(s1) + strlen(s2) + 1);
