@@ -13,12 +13,15 @@ KUSIS ID: PARTNER NAME:
 #include <sys/types.h>
 #include <string.h>
 #include <sys/wait.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 
 #define MAX_LINE       80 /* 80 chars per line, per command, should be enough. */
+#define MAX_HISTORY_SIZE   10
 #define ARGS_SIZE MAX_LINE / 2 + 1
 
-int DEBUG_MODE = 0;
+int DEBUG_MODE = 1;
 
 const char *myCommands[] = {
         "test",
@@ -26,13 +29,29 @@ const char *myCommands[] = {
         "dance",
 };
 
+int arguementSize = 0;
+
+
+//HISTORY
+char *commandStr;
+
+char historyOfCommands[MAX_HISTORY_SIZE][ARGS_SIZE][500];
+
+int historySize = 0;
+
+//FUNCTION DECLERATIONS
+
+void initArguementSize(char *args[]);
+
 int parseCommand(char inputBuffer[], char *args[], int *background);
 
 char *concat(const char *s1, const char *s2);
 
 int isLinuxCommand(char *command);
 
-int arguementsContainsString(char *args[], char *string);
+int arguementAtIndexEquals(char *args[], int index, char *string);
+
+void addAndShiftElements(char *element[], int currentSize, int maxSize);
 
 int main(void) {
     char inputBuffer[MAX_LINE];            /* buffer to hold the command entered */
@@ -60,24 +79,59 @@ int main(void) {
           (3) if command included &, parent will invoke wait()
              */
 
-            //Print args for debugging
+            initArguementSize(args);
 
-            if(DEBUG_MODE) {
+            addAndShiftElements(args, historySize, MAX_HISTORY_SIZE);
+            historySize++;
+
+            //Print args for debugging
+            if (DEBUG_MODE) {
                 printf("Input Buffer : %s\n", inputBuffer);
 
                 for (int t = 0; t < ARGS_SIZE; t++) {
                     if (args[t] == NULL)
                         break;
 
-                    printf("Arguements %d: %s\n", t, args[t]);
+                    printf("Arguments %d: %s\n", t, args[t]);
                 }
 
-                int contains = arguementsContainsString(args, ">>");
-                printf("Contains : %d\n", contains);
+                for (int y = 0; y < historySize; y++) {
+                    for (int t = 0; t < ARGS_SIZE; t++) {
+                        if (args[t] == NULL)
+                            break;
+
+                        printf("History %d Arg %d: %s\n", y, t, historyOfCommands[y][t]);
+                    }
+                }
             }
 
             if (fork() == 0) {
                 if (isLinuxCommand(inputBuffer)) {
+                    int append = arguementAtIndexEquals(args, arguementSize - 2, ">>");
+                    printf("Append: %d\n", append);
+                    int truncate = arguementAtIndexEquals(args, arguementSize - 2, ">");
+                    printf("Truncate: %d\n", truncate);
+
+                    if (append || truncate) {
+                        const size_t filenameSize = strlen(args[arguementSize - 1]) + 1;
+                        char *copiedFilename = malloc(filenameSize);
+                        strncpy(copiedFilename, args[arguementSize - 1], filenameSize);
+
+                        args[arguementSize - 2] = NULL;
+                        args[arguementSize - 1] = NULL;
+
+                        int returnVal;
+
+                        if (truncate) {
+                            returnVal = open(copiedFilename, O_CREAT | O_RDWR | O_TRUNC, 0777);
+                        } else {
+                            returnVal = open(copiedFilename, O_CREAT | O_RDWR | O_APPEND, 0777);
+                        }
+
+                        close(1);
+                        dup2(returnVal, 1);
+                        close(returnVal);
+                    }
 
                     char *execFile = concat("/bin/", inputBuffer);
                     status = execv(execFile, args);
@@ -195,6 +249,20 @@ int parseCommand(char inputBuffer[], char *args[], int *background) {
 
 } /* end of parseCommand routine */
 
+void initArguementSize(char *args[]) {
+    int n = 0;
+
+    for (int i = 0; i < MAX_LINE / 2 + 1; i++) {
+        if (args[i] == NULL) {
+            break;
+        }
+
+        n++;
+    }
+
+    arguementSize = n;
+}
+
 int isLinuxCommand(char *command) {
     int arrSize = (sizeof(myCommands) / sizeof(const char *));
 
@@ -207,19 +275,34 @@ int isLinuxCommand(char *command) {
     return 1;
 }
 
-int arguementsContainsString(char *args[], char *string) {
-    for (int i = 0; i < MAX_LINE / 2 + 1; i++) {
-        if (args[i] == NULL)
-            return 0;
+int arguementAtIndexEquals(char *args[], int index, char *string) {
+    if (index >= arguementSize)
+        printf("Index Out of Bounds !!!!!!!!!!!!");
 
-        if (strcmp(string, args[i]) == 0) {
-            return 1;
-        }
+    if (strcmp(string, args[index]) == 0) {
+        return 1;
     }
 
     return 0;
 }
 
+void addAndShiftElements(char *element[], int currentSize, int maxSize) {
+    for (int i = currentSize - 1; i >= 0; i--) {
+        if (i == maxSize - 1) {
+            continue;
+        }
+
+        if (i == 0) {
+            for (int z = 0; z < arguementSize; z++) {
+                strcpy(historyOfCommands[i][z], element[z]);
+            }
+        } else {
+            for (int z = 0; z < arguementSize; z++) {
+                strcpy(historyOfCommands[i][z], historyOfCommands[i - 1][z]);
+            }
+        }
+    }
+}
 
 char *concat(const char *s1, const char *s2) {
     char *result = malloc(strlen(s1) + strlen(s2) + 1);
