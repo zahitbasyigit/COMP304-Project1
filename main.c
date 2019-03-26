@@ -16,6 +16,9 @@ KUSIS ID: PARTNER NAME:
 
 
 #define MAX_LINE       80 /* 80 chars per line, per command, should be enough. */
+#define ARGS_SIZE MAX_LINE / 2 + 1
+
+int DEBUG_MODE = 0;
 
 const char *myCommands[] = {
         "test",
@@ -34,7 +37,7 @@ int arguementsContainsString(char *args[], char *string);
 int main(void) {
     char inputBuffer[MAX_LINE];            /* buffer to hold the command entered */
     int background;                        /* equals 1 if a command is followed by '&' */
-    char *args[MAX_LINE / 2 + 1];            /* command line (of 80) has max of 40 arguments */
+    char *args[ARGS_SIZE];            /* command line (of 80) has max of 40 arguments */
     pid_t child;                    /* process id of the child process */
     int status;                /* result from execv system call*/
     int shouldrun = 1;
@@ -56,8 +59,22 @@ int main(void) {
           (2) the child process will invoke execv()
           (3) if command included &, parent will invoke wait()
              */
-            int contains = arguementsContainsString(args, ">>");
-            printf("Contains : %d\n", contains);
+
+            //Print args for debugging
+
+            if(DEBUG_MODE) {
+                printf("Input Buffer : %s\n", inputBuffer);
+
+                for (int t = 0; t < ARGS_SIZE; t++) {
+                    if (args[t] == NULL)
+                        break;
+
+                    printf("Arguements %d: %s\n", t, args[t]);
+                }
+
+                int contains = arguementsContainsString(args, ">>");
+                printf("Contains : %d\n", contains);
+            }
 
             if (fork() == 0) {
                 if (isLinuxCommand(inputBuffer)) {
@@ -192,6 +209,9 @@ int isLinuxCommand(char *command) {
 
 int arguementsContainsString(char *args[], char *string) {
     for (int i = 0; i < MAX_LINE / 2 + 1; i++) {
+        if (args[i] == NULL)
+            return 0;
+
         if (strcmp(string, args[i]) == 0) {
             return 1;
         }
