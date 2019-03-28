@@ -35,7 +35,7 @@ int arguementSize = 0;
 //HISTORY
 char *commandStr;
 
-char historyOfCommands[MAX_HISTORY_SIZE][ARGS_SIZE][500];
+char *historyOfCommands[MAX_HISTORY_SIZE][ARGS_SIZE];
 
 int historySize = 0;
 
@@ -81,11 +81,15 @@ int main(void) {
 
             initArguementSize(args);
 
-            addAndShiftElements(args, historySize, MAX_HISTORY_SIZE);
-            historySize++;
+            addAndShiftElements(args, historySize, MAX_HISTORY_SIZE + 1);
+
+            if (historySize < MAX_HISTORY_SIZE) {
+                historySize++;
+            }
 
             //Print args for debugging
             if (DEBUG_MODE) {
+                /*
                 printf("Input Buffer : %s\n", inputBuffer);
 
                 for (int t = 0; t < ARGS_SIZE; t++) {
@@ -95,22 +99,28 @@ int main(void) {
                     printf("Arguments %d: %s\n", t, args[t]);
                 }
 
+                 */
+
                 for (int y = 0; y < historySize; y++) {
+                    printf("History %d:", y + 1);
+
                     for (int t = 0; t < ARGS_SIZE; t++) {
-                        if (args[t] == NULL)
+                        if (historyOfCommands[y][t] == NULL)
                             break;
 
-                        printf("History %d Arg %d: %s\n", y, t, historyOfCommands[y][t]);
+                        printf("%s ", historyOfCommands[y][t]);
                     }
+
+                    printf("\n");
                 }
             }
 
             if (fork() == 0) {
                 if (isLinuxCommand(inputBuffer)) {
                     int append = arguementAtIndexEquals(args, arguementSize - 2, ">>");
-                    printf("Append: %d\n", append);
+                    //printf("Append: %d\n", append);
                     int truncate = arguementAtIndexEquals(args, arguementSize - 2, ">");
-                    printf("Truncate: %d\n", truncate);
+                    //printf("Truncate: %d\n", truncate);
 
                     if (append || truncate) {
                         const size_t filenameSize = strlen(args[arguementSize - 1]) + 1;
@@ -135,7 +145,7 @@ int main(void) {
 
                     char *execFile = concat("/bin/", inputBuffer);
                     status = execv(execFile, args);
-                    printf("execv status: %d\n", status);
+                    //printf("execv status: %d\n", status);
                     free(execFile);
                 } else {
                     printf("not implemented\n");
@@ -252,7 +262,7 @@ int parseCommand(char inputBuffer[], char *args[], int *background) {
 void initArguementSize(char *args[]) {
     int n = 0;
 
-    for (int i = 0; i < MAX_LINE / 2 + 1; i++) {
+    for (int i = 0; i < ARGS_SIZE; i++) {
         if (args[i] == NULL) {
             break;
         }
@@ -287,18 +297,40 @@ int arguementAtIndexEquals(char *args[], int index, char *string) {
 }
 
 void addAndShiftElements(char *element[], int currentSize, int maxSize) {
-    for (int i = currentSize - 1; i >= 0; i--) {
+    printf("init first element\n");
+    printf("currentSize : %d, maxSize : %d\n", currentSize, maxSize);
+
+    for (int i = currentSize; i >= 0; i--) {
         if (i == maxSize - 1) {
             continue;
         }
 
+        //RESET HISTORY TO BE REPLACED
+        for (int z = 0; z < ARGS_SIZE; z++) {
+            historyOfCommands[i][z] = NULL;
+        }
+
         if (i == 0) {
-            for (int z = 0; z < arguementSize; z++) {
-                strcpy(historyOfCommands[i][z], element[z]);
+            for (int z = 0; z < ARGS_SIZE; z++) {
+                if (element[z] == NULL)
+                    break;
+
+                historyOfCommands[i][z] = NULL;
+                char *copied = malloc(strlen(element[z]) + 1);
+                strcpy(copied, element[z]);
+                historyOfCommands[i][z] = copied;
+
+                printf("test1 : %s\n", historyOfCommands[i][z]);
+                printf("test2 : %s\n", element[z]);
             }
         } else {
-            for (int z = 0; z < arguementSize; z++) {
-                strcpy(historyOfCommands[i][z], historyOfCommands[i - 1][z]);
+            for (int z = 0; z < ARGS_SIZE; z++) {
+                if (historyOfCommands[i - 1][z] == NULL)
+                    break;
+
+                char *copied = malloc(strlen(historyOfCommands[i - 1][z]) + 1);
+                strcpy(copied, historyOfCommands[i - 1][z]);
+                historyOfCommands[i][z] = copied;
             }
         }
     }
