@@ -18,7 +18,8 @@ KUSIS ID: PARTNER NAME:
 
 
 #define MAX_LINE       80 /* 80 chars per line, per command, should be enough. */
-#define MAX_HISTORY_SIZE   10
+#define MAX_HISTORY_PRINT_COUNT 10
+#define MAX_HISTORY_SIZE   500
 #define ARGS_SIZE MAX_LINE / 2 + 1
 
 int DEBUG_MODE = 1;
@@ -37,7 +38,7 @@ char *commandStr;
 
 char *historyOfCommands[MAX_HISTORY_SIZE][ARGS_SIZE];
 
-int historySize = 0;
+int historyCount = 0;
 
 //FUNCTION DECLERATIONS
 
@@ -45,13 +46,17 @@ void initArguementSize(char *args[]);
 
 int parseCommand(char inputBuffer[], char *args[], int *background);
 
+int parseHistoryFromIndexCommand(char *args[]);
+
 char *concat(const char *s1, const char *s2);
 
 int isLinuxCommand(char *command);
 
 int arguementAtIndexEquals(char *args[], int index, char *string);
 
-void addAndShiftElements(char *element[], int currentSize, int maxSize);
+void addElementToHistory(char **element);
+
+void printHistory();
 
 int main(void) {
     char inputBuffer[MAX_LINE];            /* buffer to hold the command entered */
@@ -60,13 +65,18 @@ int main(void) {
     pid_t child;                    /* process id of the child process */
     int status;                /* result from execv system call*/
     int shouldrun = 1;
+    int shouldreadfromuser = 1;
 
     int i, upper;
 
     while (shouldrun) {                    /* Program terminates normally inside setup */
         background = 0;
 
-        shouldrun = parseCommand(inputBuffer, args, &background);       /* get next command */
+        if (shouldreadfromuser) {
+            shouldrun = parseCommand(inputBuffer, args, &background);       /* get next command */
+        } else {
+            shouldreadfromuser = 1;
+        }
 
         if (strncmp(inputBuffer, "exit", 4) == 0)
             shouldrun = 0;     /* Exiting from shelldon*/
@@ -80,12 +90,6 @@ int main(void) {
              */
 
             initArguementSize(args);
-
-            addAndShiftElements(args, historySize, MAX_HISTORY_SIZE + 1);
-
-            if (historySize < MAX_HISTORY_SIZE) {
-                historySize++;
-            }
 
             //Print args for debugging
             if (DEBUG_MODE) {
@@ -101,22 +105,47 @@ int main(void) {
 
                  */
 
-                for (int y = 0; y < historySize; y++) {
-                    printf("History %d:", y + 1);
-
-                    for (int t = 0; t < ARGS_SIZE; t++) {
-                        if (historyOfCommands[y][t] == NULL)
-                            break;
-
-                        printf("%s ", historyOfCommands[y][t]);
-                    }
-
-                    printf("\n");
-                }
             }
 
+            int commandHistoryRunId = parseHistoryFromIndexCommand(args);
+
+            if (strcmp("!!", inputBuffer) == 0) {
+                shouldreadfromuser = 0;
+                strcpy(inputBuffer, historyOfCommands[historyCount - 1][0]);
+
+                for (int j = 0; j < ARGS_SIZE; j++) {
+                    if (historyOfCommands[historyCount - 1][j] == NULL)
+                        break;
+
+                    char *copied = malloc(strlen(historyOfCommands[historyCount - 1][j]) + 1);
+                    strcpy(copied, historyOfCommands[historyCount - 1][j]);
+                    args[j] = copied;
+                }
+
+                continue;
+
+            } else if (commandHistoryRunId != -1) {
+                shouldreadfromuser = 0;
+                strcpy(inputBuffer, historyOfCommands[commandHistoryRunId - 1][0]);
+
+                for (int j = 0; j < ARGS_SIZE; j++) {
+                    if (historyOfCommands[commandHistoryRunId - 1][j] == NULL)
+                        break;
+
+                    char *copied = malloc(strlen(historyOfCommands[commandHistoryRunId - 1][j]) + 1);
+                    strcpy(copied, historyOfCommands[commandHistoryRunId - 1][j]);
+                    args[j] = copied;
+                }
+
+                continue;
+            }
+
+            addElementToHistory(args);
+
             if (fork() == 0) {
-                if (isLinuxCommand(inputBuffer)) {
+                if (strcmp("history", inputBuffer) == 0) {
+                    printHistory();
+                } else if (isLinuxCommand(inputBuffer)) {
                     int append = arguementAtIndexEquals(args, arguementSize - 2, ">>");
                     //printf("Append: %d\n", append);
                     int truncate = arguementAtIndexEquals(args, arguementSize - 2, ">");
@@ -152,9 +181,9 @@ int main(void) {
                 }
             } else {
                 if (background == 0) {
-                    printf("waiting for child to end\n");
+                    //printf("waiting for child to end\n");
                     wait(NULL);
-                    printf("child has ended\n");
+                    //printf("child has ended\n");
                 }
             }
 
@@ -296,43 +325,72 @@ int arguementAtIndexEquals(char *args[], int index, char *string) {
     return 0;
 }
 
-void addAndShiftElements(char *element[], int currentSize, int maxSize) {
-    printf("init first element\n");
-    printf("currentSize : %d, maxSize : %d\n", currentSize, maxSize);
+void addElementToHistory(char **element) {
+    if (strcmp(element[0], "history") == 0)
+        return;
 
-    for (int i = currentSize; i >= 0; i--) {
-        if (i == maxSize - 1) {
-            continue;
+    for (int i = 0; i < ARGS_SIZE; i++) {
+        if (element[i] == NULL)
+            break;
+
+        char *copied = malloc(strlen(element[i]) + 1);
+        strcpy(copied, element[i]);
+        historyOfCommands[historyCount][i] = copied;
+    }
+
+    historyCount++;
+}
+
+void printHistory() {
+    int printCount = 0;
+
+    for (int y = historyCount - 1; y >= 0; y--) {
+        int displayId = y + 1;
+        printCount++;
+
+        if (printCount > MAX_HISTORY_PRINT_COUNT)
+            break;
+
+        if (historyCount > MAX_HISTORY_SIZE) {
+            displayId = historyCount - MAX_HISTORY_SIZE + displayId;
         }
 
-        //RESET HISTORY TO BE REPLACED
-        for (int z = 0; z < ARGS_SIZE; z++) {
-            historyOfCommands[i][z] = NULL;
+        printf("%d ", displayId);
+
+        for (int t = 0; t < ARGS_SIZE; t++) {
+            if (historyOfCommands[y][t] == NULL)
+                break;
+
+            printf("%s ", historyOfCommands[y][t]);
         }
 
-        if (i == 0) {
-            for (int z = 0; z < ARGS_SIZE; z++) {
-                if (element[z] == NULL)
-                    break;
+        printf("\n");
+    }
+}
 
-                historyOfCommands[i][z] = NULL;
-                char *copied = malloc(strlen(element[z]) + 1);
-                strcpy(copied, element[z]);
-                historyOfCommands[i][z] = copied;
+int parseHistoryFromIndexCommand(char *args[]) {
+    char *first = args[0];
+    char *rest = malloc(strlen(first));
 
-                printf("test1 : %s\n", historyOfCommands[i][z]);
-                printf("test2 : %s\n", element[z]);
+    int numberCount = 0;
+
+    if (first[0] == '!') {
+        while (1) {
+            numberCount++;
+            if (first[numberCount] == '\0') {
+                int historyId = atoi(rest);
+                if (historyId > historyCount) {
+                    printf("Invalid history id\n");
+                    return -1;
+                }
+
+                return historyId;
             }
-        } else {
-            for (int z = 0; z < ARGS_SIZE; z++) {
-                if (historyOfCommands[i - 1][z] == NULL)
-                    break;
 
-                char *copied = malloc(strlen(historyOfCommands[i - 1][z]) + 1);
-                strcpy(copied, historyOfCommands[i - 1][z]);
-                historyOfCommands[i][z] = copied;
-            }
+            rest[numberCount - 1] = first[numberCount];
         }
+    } else {
+        return -1;
     }
 }
 
