@@ -7,6 +7,7 @@ KUSIS ID: PARTNER NAME:
  */
 
 #include <stdio.h>
+#include <dirent.h>
 #include <unistd.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -57,6 +58,13 @@ int arguementAtIndexEquals(char *args[], int index, char *string);
 void addElementToHistory(char **element);
 
 void printHistory();
+
+//CODE SEARCH
+void printWordOccurancesInFile(char *filename, char *word);
+
+void codeSearch(char *args[]);
+
+void recursiveCodeSearch(char *query, const char *name, int indent);
 
 int main(void) {
     char inputBuffer[MAX_LINE];            /* buffer to hold the command entered */
@@ -145,6 +153,9 @@ int main(void) {
             if (fork() == 0) {
                 if (strcmp("history", inputBuffer) == 0) {
                     printHistory();
+                } else if (strcmp("codesearch", inputBuffer) == 0) {
+                    codeSearch(args);
+
                 } else if (isLinuxCommand(inputBuffer)) {
                     int append = arguementAtIndexEquals(args, arguementSize - 2, ">>");
                     //printf("Append: %d\n", append);
@@ -315,8 +326,10 @@ int isLinuxCommand(char *command) {
 }
 
 int arguementAtIndexEquals(char *args[], int index, char *string) {
-    if (index >= arguementSize)
-        printf("Index Out of Bounds !!!!!!!!!!!!");
+    if (index >= arguementSize) {
+        //index of out bounds --> not equals
+        return 0;
+    }
 
     if (strcmp(string, args[index]) == 0) {
         return 1;
@@ -399,4 +412,127 @@ char *concat(const char *s1, const char *s2) {
     strcpy(result, s1);
     strcat(result, s2);
     return result;
+}
+
+void printWordOccurancesInFile(char *filename, char *word) {
+    FILE *fp;
+    char *line = NULL;
+    size_t len = 0;
+    ssize_t read;
+    int linecount = 1;
+
+    fp = fopen(filename, "r");
+    if (fp == NULL) {
+        printf("Unable to open file please try again\n");
+        return;
+    }
+
+    while ((read = getline(&line, &len, fp)) != -1) {
+
+        //check if word is contained in line
+        if (strstr(line, word) != NULL) {
+            printf("%d: %s -> %s", linecount, filename, line);
+        }
+
+        linecount++;
+    }
+
+    fclose(fp);
+    if (line)
+        free(line);
+}
+
+
+void codeSearch(char *args[]) {
+    if (args[1] != NULL) {
+
+        int isRecursive = 0;
+        int isTargeted = 0;
+
+        if (arguementAtIndexEquals(args, 1, "-r")) {
+            isRecursive = 1;
+        } else if (arguementAtIndexEquals(args, 2, "-f")) {
+            isTargeted = 1;
+        }
+
+        char *arg;
+
+        if (isRecursive) {
+            arg = args[2];
+        } else {
+            arg = args[1];
+        }
+
+        char *query = malloc(strlen(arg));
+
+        if (arg[0] != '"') {
+            printf("Invalid query enter with \"\"\n");
+            return;
+        }
+
+        int argcnt = 1;
+        int querycnt = 0;
+
+        while (1) {
+            if (arg[argcnt] == '"') {
+                break;
+            } else {
+                query[querycnt] = arg[argcnt];
+                querycnt++;
+            }
+
+            argcnt++;
+        }
+
+        query[querycnt] = '\0';
+
+        printf("expected query : %s\n", query);
+
+        if (isTargeted) {
+            if (args[2] != NULL) {
+                printWordOccurancesInFile(args[3], query);
+            }
+        } else if (isRecursive) {
+            recursiveCodeSearch(query, ".", 0);
+        } else {
+            DIR *d;
+            struct dirent *dir;
+            d = opendir(".");
+            if (d) {
+                while ((dir = readdir(d)) != NULL) {
+                    printWordOccurancesInFile(dir->d_name, query);
+                }
+                closedir(d);
+            }
+        }
+    } else {
+        printf("Invalid arguments for codesearch\n");
+    }
+}
+
+
+void recursiveCodeSearch(char *query, const char *name, int indent) {
+    DIR *dir;
+    struct dirent *entry;
+
+    if (!(dir = opendir(name)))
+        return;
+
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type == DT_DIR) {
+            char path[1024];
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+            snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
+            recursiveCodeSearch(query, path, indent + 2);
+        } else {
+            char path[1024];
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+                continue;
+            snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
+            printWordOccurancesInFile(path, query);
+        }
+    }
+
+    closedir(dir);
 }
