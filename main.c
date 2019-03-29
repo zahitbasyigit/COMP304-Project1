@@ -64,6 +64,8 @@ void printWordOccurancesInFile(char *filename, char *word);
 
 void codeSearch(char *args[]);
 
+void birdakika(char *args[]);
+
 void recursiveCodeSearch(char *query, const char *name, int indent);
 
 int main(void) {
@@ -155,6 +157,8 @@ int main(void) {
                     printHistory();
                 } else if (strcmp("codesearch", inputBuffer) == 0) {
                     codeSearch(args);
+                } else if(strcmp("birdakika", inputBuffer) == 0){
+                	birdakika(args);
 
                 } else if (isLinuxCommand(inputBuffer)) {
                     int append = arguementAtIndexEquals(args, arguementSize - 2, ">>");
@@ -442,6 +446,43 @@ void printWordOccurancesInFile(char *filename, char *word) {
         free(line);
 }
 
+void birdakika(char *args[]){
+    if(args[1]==NULL) printf("Missing parameters.\n");
+    else if(args[2]== NULL) printf("Folder name must be given.\n");
+    else{
+        char *timeGiven = args[1];
+        char *fileName = args[2];
+        char *hour;
+        char *min;    
+   
+        hour = strtok(timeGiven , ".");
+        min = strtok(NULL , ".");
+        
+        
+        ////This job starts the music
+        char startCommand[300] = "(crontab -u $USER -l ; echo \""; 
+        strcat(startCommand, min);
+        strcat(startCommand, " ");
+        strcat(startCommand, hour);
+        strcat(startCommand, " * * * mpg321 ");
+        strcat(startCommand, fileName);
+        strcat(startCommand, "\") | crontab -u $USER -");                
+        
+        //// This job stops the job
+        int a = atoi(min) + 1;
+        char stopMin[100];
+        sprintf(stopMin, "%d", a);
+        char stopCommand[300] = "(crontab -u $USER -l ; echo \""; 
+        strcat(stopCommand, stopMin);
+        strcat(stopCommand, " ");
+        strcat(stopCommand, hour);
+        strcat(stopCommand, " * * * pkill mpg321 ");
+        strcat(stopCommand, "\") | crontab -u $USER -");
+
+        system(startCommand);
+        system(stopCommand);
+    }
+}
 
 void codeSearch(char *args[]) {
     if (args[1] != NULL) {
