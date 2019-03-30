@@ -26,7 +26,7 @@ KUSIS ID: PARTNER NAME:
 int DEBUG_MODE = 1;
 
 const char *myCommands[] = {
-        "test",
+        "sleeptest",
         "renk",
         "dance",
 };
@@ -143,7 +143,6 @@ int main(void) {
                     codeSearch(args);
                 } else if (strcmp("birdakika", inputBuffer) == 0) {
                     birdakika(args);
-
                 } else if (isLinuxCommand(inputBuffer)) {
                     int append = arguementAtIndexEquals(args, arguementSize - 2, ">>");
                     //printf("Append: %d\n", append);
@@ -176,7 +175,7 @@ int main(void) {
                     //printf("execv status: %d\n", status);
                     free(execFile);
                 } else {
-                    printf("not implemented\n");
+                    execv(inputBuffer, args);
                 }
             } else {
                 if (background == 0) {
