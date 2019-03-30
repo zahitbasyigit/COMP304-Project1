@@ -1,8 +1,8 @@
 /*
  * shelldon interface program
 
-KUSIS ID: PARTNER NAME:
-KUSIS ID: PARTNER NAME:
+KUSIS ID: 53825 PARTNER NAME: Özden Gürsoy
+KUSIS ID: 53846 PARTNER NAME: Zahit Başyiğit
 
  */
 
@@ -16,6 +16,8 @@ KUSIS ID: PARTNER NAME:
 #include <sys/wait.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <time.h>
+
 
 
 #define MAX_LINE       80 /* 80 chars per line, per command, should be enough. */
@@ -64,9 +66,13 @@ void printWordOccurancesInFile(char *filename, char *word);
 
 void codeSearch(char *args[]);
 
+void recursiveCodeSearch(char *query, const char *name);
+
+// CRONTAB
 void birdakika(char *args[]);
 
-void recursiveCodeSearch(char *query, const char *name);
+//SING A SONG
+void singASong();
 
 int main(void) {
     char inputBuffer[MAX_LINE];            /* buffer to hold the command entered */
@@ -143,6 +149,9 @@ int main(void) {
                     codeSearch(args);
                 } else if (strcmp("birdakika", inputBuffer) == 0) {
                     birdakika(args);
+                } else if(strcmp("singasong", inputBuffer) == 0){
+                    singASong();
+
                 } else if (isLinuxCommand(inputBuffer)) {
                     int append = arguementAtIndexEquals(args, arguementSize - 2, ">>");
                     //printf("Append: %d\n", append);
@@ -339,6 +348,37 @@ void addElementToHistory(char **element) {
     }
 
     historyCount++;
+}
+
+void singASong() {
+    srand(time(NULL));
+
+    char *song[20];
+
+    char *notes[] = {
+        "do",
+        "re",
+        "mi",
+        "fa",
+        "sol",
+        "la",
+        "si",
+    };
+
+    //Set the notes
+    for(int i= 0; i<20; i++){
+        int r = rand();
+        r = r % 7;
+        song[i] = notes[r];
+        
+        char command[300] = "mpg321 ";
+        strcat(command, song[i]);
+        strcat(command, ".mp3");
+        system(command);
+        sleep(1);
+    }
+
+    
 }
 
 void printHistory() {
