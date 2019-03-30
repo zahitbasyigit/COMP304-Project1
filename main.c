@@ -66,7 +66,7 @@ void codeSearch(char *args[]);
 
 void birdakika(char *args[]);
 
-void recursiveCodeSearch(char *query, const char *name, int indent);
+void recursiveCodeSearch(char *query, const char *name);
 
 int main(void) {
     char inputBuffer[MAX_LINE];            /* buffer to hold the command entered */
@@ -100,22 +100,6 @@ int main(void) {
              */
 
             initArguementSize(args);
-
-            //Print args for debugging
-            if (DEBUG_MODE) {
-                /*
-                printf("Input Buffer : %s\n", inputBuffer);
-
-                for (int t = 0; t < ARGS_SIZE; t++) {
-                    if (args[t] == NULL)
-                        break;
-
-                    printf("Arguments %d: %s\n", t, args[t]);
-                }
-
-                 */
-
-            }
 
             int commandHistoryRunId = parseHistoryFromIndexCommand(args);
 
@@ -157,8 +141,8 @@ int main(void) {
                     printHistory();
                 } else if (strcmp("codesearch", inputBuffer) == 0) {
                     codeSearch(args);
-                } else if(strcmp("birdakika", inputBuffer) == 0){
-                	birdakika(args);
+                } else if (strcmp("birdakika", inputBuffer) == 0) {
+                    birdakika(args);
 
                 } else if (isLinuxCommand(inputBuffer)) {
                     int append = arguementAtIndexEquals(args, arguementSize - 2, ">>");
@@ -446,33 +430,33 @@ void printWordOccurancesInFile(char *filename, char *word) {
         free(line);
 }
 
-void birdakika(char *args[]){
-    if(args[1]==NULL) printf("Missing parameters.\n");
-    else if(args[2]== NULL) printf("Folder name must be given.\n");
-    else{
+void birdakika(char *args[]) {
+    if (args[1] == NULL) printf("Missing parameters.\n");
+    else if (args[2] == NULL) printf("Folder name must be given.\n");
+    else {
         char *timeGiven = args[1];
         char *fileName = args[2];
         char *hour;
-        char *min;    
-   
-        hour = strtok(timeGiven , ".");
-        min = strtok(NULL , ".");
-        
-        
+        char *min;
+
+        hour = strtok(timeGiven, ".");
+        min = strtok(NULL, ".");
+
+
         ////This job starts the music
-        char startCommand[300] = "(crontab -u $USER -l ; echo \""; 
+        char startCommand[300] = "(crontab -u $USER -l ; echo \"";
         strcat(startCommand, min);
         strcat(startCommand, " ");
         strcat(startCommand, hour);
         strcat(startCommand, " * * * mpg321 ");
         strcat(startCommand, fileName);
-        strcat(startCommand, "\") | crontab -u $USER -");                
-        
+        strcat(startCommand, "\") | crontab -u $USER -");
+
         //// This job stops the job
         int a = atoi(min) + 1;
         char stopMin[100];
         sprintf(stopMin, "%d", a);
-        char stopCommand[300] = "(crontab -u $USER -l ; echo \""; 
+        char stopCommand[300] = "(crontab -u $USER -l ; echo \"";
         strcat(stopCommand, stopMin);
         strcat(stopCommand, " ");
         strcat(stopCommand, hour);
@@ -534,14 +518,14 @@ void codeSearch(char *args[]) {
                 printWordOccurancesInFile(args[3], query);
             }
         } else if (isRecursive) {
-            recursiveCodeSearch(query, ".", 0);
+            recursiveCodeSearch(query, ".");
         } else {
             DIR *d;
-            struct dirent *dir;
+            struct dirent *entry;
             d = opendir(".");
             if (d) {
-                while ((dir = readdir(d)) != NULL) {
-                    printWordOccurancesInFile(dir->d_name, query);
+                while ((entry = readdir(d)) != NULL) {
+                    printWordOccurancesInFile(entry->d_name, query);
                 }
                 closedir(d);
             }
@@ -552,7 +536,7 @@ void codeSearch(char *args[]) {
 }
 
 
-void recursiveCodeSearch(char *query, const char *name, int indent) {
+void recursiveCodeSearch(char *query, const char *name) {
     DIR *dir;
     struct dirent *entry;
 
@@ -560,17 +544,14 @@ void recursiveCodeSearch(char *query, const char *name, int indent) {
         return;
 
     while ((entry = readdir(dir)) != NULL) {
+        char path[1024];
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+        snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
+
         if (entry->d_type == DT_DIR) {
-            char path[1024];
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-                continue;
-            snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
-            recursiveCodeSearch(query, path, indent + 2);
+            recursiveCodeSearch(query, path);
         } else {
-            char path[1024];
-            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
-                continue;
-            snprintf(path, sizeof(path), "%s/%s", name, entry->d_name);
             printWordOccurancesInFile(path, query);
         }
     }
